@@ -1,0 +1,910 @@
+---
+title: "Simulations"
+output: html_document
+date: "2022-12-21"
+---
+
+```{r setup, include=FALSE}
+source("functions_compartm.R")
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Don't use this code until you've run all of chunks from "set_up_ICs.Rmd" first!
+
+
+## NOTE: the sections for using absolute mobile phone data will NOT run as we have not made available that dataset. However, the departure-diffusion model sections DO run, as that dataset has been made available (run "set_up_ICs.Rmd" first to load it)
+
+
+## Using absolute CDRs. 
+
+### Scenario 1 - seed 10 infections in lusaka only, unscaled
+```{r}
+initial_conditions = data.frame(M = M0, S = S0_short, I0 = I0, V1R0 = V1R0, V20 = V20, V1C0 = V1C0,  incid_deaths0 = incid_deaths0, N0 = N0)
+
+parameters_sc2 = list(sd.dw.val = sd.dw.val, t = t_2, mob_data_prob = mob_data_prob, mcv1_cov_dat = mcv1_cov_dat2020_2, mcv2_cov_dat= mcv2_cov_dat2020_2, sia_cov = sia_cov2020_2, births_rate = births_rate, wane_mat = wane_mat, beta_values = beta_values, alpha = alpha, deaths_rate = deaths_rate, measles_cfr = measles_cfr, MR1_time = MR1_time, MR2_time = MR2_time, p_eff_V1r =p_eff_V1r, p_eff_V1c =p_eff_V1c, intro_mat = intro_mat2020_2)
+
+
+run_sc_base_a = multi_run(num_runs = n_sims, p_mat = pop_mat2020_2, ICs = initial_conditions, pars = parameters_sc2)
+#write.csv(run_sc_base_a, "figures and results/run_sc_base_a.csv")
+```
+
+```{r}
+out_base_a = plots_post_run(runs_output = run_sc_base_a, 
+                                    time_max = 36)
+rm(run_sc_base_a)
+```
+
+### Scenario 2 - seed 10 infections in lusaka only, scale to Choma
+```{r}
+# get current probability of staying within choma
+choma_prob_base = mob_data_prob$choma[18]
+# new probability
+choma_prob_sc1 = 1 - 0.0152
+# get the scaling factor
+scale_children = choma_prob_sc1 / choma_prob_base # 1.064
+
+mob_prob_temp = as.matrix(mob_data_prob)
+diag(mob_prob_temp) = diag(mob_prob_temp) * scale_children
+new_temp_mat = matrix(0, nrow = dim(mob_prob_temp)[1], ncol = dim(mob_prob_temp)[1])
+diag(new_temp_mat) = diag(mob_prob_temp)
+diag(mob_prob_temp) = 0
+new_temp_mat<-replace(new_temp_mat, new_temp_mat>0.9956,0.9956) # replace any values >1 with 1
+new_rowsums = data.frame(rowS = rep(1, (dim(mob_prob_temp)[1])))
+new_rowsums = new_rowsums - diag(new_temp_mat)
+# rescale non-diagonal values
+for (rr in 1:nrow(mob_prob_temp)){
+  if (new_rowsums[rr,]==0){
+    mob_prob_temp[rr,]=0
+  }else{
+  mob_prob_temp[rr,] = mob_prob_temp[rr,]/sum(mob_prob_temp[rr,])*new_rowsums[rr,]}
+}
+diag(mob_prob_temp) = diag(new_temp_mat) 
+
+mob_data_prob_sc2_choma = mob_prob_temp
+mob_data_prob_sc2_choma = as.data.frame(mob_data_prob_sc2_choma)
+rm(mob_prob_temp, new_rowsums, new_temp_mat)
+```
+
+```{r}
+parameters_sc2_choma = parameters_sc2
+parameters_sc2_choma$mob_data_prob = mob_data_prob_sc2_choma
+
+run_sc2_choma = multi_run(num_runs = n_sims, p_mat = pop_mat2020_2, ICs = initial_conditions, pars = parameters_sc2_choma)
+write.csv(run_sc2_choma, "figures and results/run_sc2_choma.csv")
+
+
+```
+
+```{r}
+out_choma = plots_post_run(runs_output = run_sc2_choma, 
+                                    time_max = 36)
+
+rm(run_sc2_choma)
+```
+
+
+### Scenario 3 - seed 10 infections in lusaka only, scale to Ndola
+```{r}
+# get current probability of staying within ndola
+ndola_prob_base = mob_data_prob$ndola[84]
+# new probability
+ndola_prob_sc1 = 1 - 0.022
+# get the scaling factor
+scale_children = ndola_prob_sc1 / ndola_prob_base 
+
+mob_prob_temp = as.matrix(mob_data_prob)
+diag(mob_prob_temp) = diag(mob_prob_temp) * scale_children
+new_temp_mat = matrix(0, nrow = dim(mob_prob_temp)[1], ncol = dim(mob_prob_temp)[1])
+diag(new_temp_mat) = diag(mob_prob_temp)
+diag(mob_prob_temp) = 0
+new_temp_mat<-replace(new_temp_mat, new_temp_mat>0.9956,0.9956) # replace any values >1 with 1
+new_rowsums = data.frame(rowS = rep(1, (dim(mob_prob_temp)[1])))
+new_rowsums = new_rowsums - diag(new_temp_mat)
+# rescale non-diagonal values
+for (rr in 1:nrow(mob_prob_temp)){
+  if (new_rowsums[rr,]==0){
+    mob_prob_temp[rr,]=0
+  }else{
+  mob_prob_temp[rr,] = mob_prob_temp[rr,]/sum(mob_prob_temp[rr,])*new_rowsums[rr,]}
+}
+diag(mob_prob_temp) = diag(new_temp_mat) 
+
+mob_data_prob_sc2_ndola = mob_prob_temp
+rm(mob_prob_temp, new_rowsums, new_temp_mat)
+```
+
+```{r}
+parameters_sc2_ndola = parameters_sc2
+parameters_sc2_ndola$mob_data_prob = mob_data_prob_sc2_ndola
+
+run_sc2_ndola = multi_run(num_runs = n_sims, p_mat = pop_mat2020_2, ICs = initial_conditions, pars = parameters_sc2_ndola)
+write.csv(run_sc2_ndola, "figures and results/run_sc2_ndola.csv")
+
+
+```
+
+```{r}
+out_ndola = plots_post_run(runs_output = run_sc2_ndola, 
+                                    time_max = 36)
+
+rm(run_sc2_ndola)
+```
+
+### Scenario 3 - seed 10 infections in lusaka only, scale to mixture of Ndola and Choma
+```{r}
+# pull probability of travel from the two scaled matrices 
+mob_data_prob_mixed = mob_data_prob_sc2_choma
+# now replace rows that have residence=="ndola" with mobility matrix from ndola
+ndola_dists = districts.full3 %>% filter(residence=="ndola")
+mob_data_prob_mixed[ndola_dists$district_map,] = mob_data_prob_sc2_ndola[ndola_dists$district_map,]
+```
+
+```{r}
+parameters_sc2_mixed = parameters_sc2
+parameters_sc2_mixed$mob_data_prob = mob_data_prob_mixed
+
+run_sc2_mixed = multi_run(num_runs = n_sims, p_mat = pop_mat2020_2, ICs = initial_conditions, pars = parameters_sc2_mixed)
+write.csv(run_sc2_mixed, "figures and results/run_sc2_mixed.csv")
+
+
+```
+
+```{r}
+out_mixed = plots_post_run(runs_output = run_sc2_mixed, 
+                                    time_max = 36)
+
+rm(run_sc2_mixed)
+```
+
+
+## Using departure-diffusion model
+
+### Scenario 6 - Base case
+Start just before 2020 SIA, using ZAMPHIA susceptibility; seed 10 cases in Lusaka at time 0 and no more
+
+```{r}
+# no introductions other than seeding first 10 people in lusaka
+n_sims = 100
+
+# update population matrix
+pop_mat2020_2_full = pop_mat_full %>% dplyr::select("2020.17":"2021.26")
+
+# update parameters
+mcv1_cov_dat2020_2_full = mcv1_cov_dat_full %>% dplyr::select("2020.17":"2021.26")
+mcv2_cov_dat2020_2_full = mcv2_cov_dat_full %>% dplyr::select("2020.17":"2021.26")
+sia_cov2020_2_full = sia_cov_full %>% dplyr::select("2020.17":"2021.26")
+intro_mat2020_2_full = intro_mat_2020_full[, 1:36] 
+
+
+t_2 = 36
+
+parameters_sc2_full = list(sd.dw.val = sd.dw.val, t = t_2, mob_data_prob = mob_data_prob_full, mcv1_cov_dat = mcv1_cov_dat2020_2_full, mcv2_cov_dat= mcv2_cov_dat2020_2_full, sia_cov = sia_cov2020_2_full, births_rate = births_rate_full, wane_mat = wane_mat, beta_values = beta_values, alpha = alpha, deaths_rate = deaths_rate_full, measles_cfr = measles_cfr, MR1_time = MR1_time, MR2_time = MR2_time, p_eff_V1r =p_eff_V1r, p_eff_V1c =p_eff_V1c, intro_mat = intro_mat2020_2_full)
+
+
+run_sc_base_dd = multi_run(num_runs = n_sims, p_mat = pop_mat2020_2_full, ICs = initial_conditions_full, pars = parameters_sc2_full)
+write.csv(run_sc_base_dd, "figures and results/run_sc_base_dd.csv")
+
+
+```
+
+```{r}
+out_dd_base = plots_post_run(runs_output = run_sc_base_dd, 
+                                    time_max = 36)
+
+
+rm(runs_sc_base_dd)
+```
+
+### Scenario 7 - departure-diffusion model, Scale to Choma probabilities (not accounting for distance)
+
+```{r}
+# get current probability of staying within choma
+choma_prob_base = mob_data_prob_full$choma[21]
+# new probability
+choma_prob_sc1 = 1 - 0.0152
+# get the scaling factor
+scale_children = choma_prob_sc1 / choma_prob_base # 1.055
+
+mob_prob_temp_full = as.matrix(mob_data_prob_full)
+diag(mob_prob_temp_full) = diag(mob_prob_temp_full) * scale_children
+new_temp_mat = matrix(0, nrow = dim(mob_prob_temp_full)[1], ncol = dim(mob_prob_temp_full)[1])
+diag(new_temp_mat) = diag(mob_prob_temp_full)
+diag(mob_prob_temp_full) = 0
+new_temp_mat<-replace(new_temp_mat, new_temp_mat>0.9956,0.9956) # replace any values >1 with 1
+new_rowsums = data.frame(rowS = rep(1, (dim(mob_prob_temp_full)[1])))
+new_rowsums = new_rowsums - diag(new_temp_mat)
+# rescale non-diagonal values
+for (rr in 1:nrow(mob_prob_temp_full)){
+  if (new_rowsums[rr,]==0){
+    mob_prob_temp_full[rr,]=0
+  }else{
+  mob_prob_temp_full[rr,] = mob_prob_temp_full[rr,]/sum(mob_prob_temp_full[rr,])*new_rowsums[rr,]}
+}
+diag(mob_prob_temp_full) = diag(new_temp_mat) 
+
+
+mob_data_prob_sc2_full_choma = mob_prob_temp_full
+rm(mob_prob_temp_full, new_rowsums, new_temp_mat)
+```
+
+
+```{r}
+parameters_sc2_full_scalechoma = parameters_sc2_full
+parameters_sc2_full_scalechoma$mob_data_prob = mob_data_prob_sc2_full_choma
+
+
+run_sc_dd_scale_choma = multi_run(num_runs = n_sims, p_mat = pop_mat2020_2_full, ICs = initial_conditions_full, pars = parameters_sc2_full_scalechoma)
+write.csv(run_sc_dd_scale_choma, "figures and results/run_sc_dd_scale_choma.csv")
+
+
+```
+
+```{r}
+out_dd_scale_choma = plots_post_run(runs_output = run_sc_dd_scale_choma, 
+                                    time_max = 36)
+
+rm(run_sc_dd_scale_choma)
+
+```
+
+### Scenario 8 - departure-diffusion model, Scale to Ndola probabilities 
+
+# Scale to Ndola probabilities (not accounting for distance)
+
+```{r}
+# get current probability of staying within choma
+ndola_prob_base = mob_data_prob_full$ndola[91]
+# new probability
+ndola_prob_sc1 = 1 - 0.022
+# get the scaling factor
+scale_children = ndola_prob_sc1 / ndola_prob_base # 1.047
+
+mob_prob_temp_full = as.matrix(mob_data_prob_full)
+diag(mob_prob_temp_full) = diag(mob_prob_temp_full) * scale_children
+new_temp_mat = matrix(0, nrow = dim(mob_prob_temp_full)[1], ncol = dim(mob_prob_temp_full)[1])
+diag(new_temp_mat) = diag(mob_prob_temp_full)
+diag(mob_prob_temp_full) = 0
+new_temp_mat<-replace(new_temp_mat, new_temp_mat>0.9956,0.9956) # replace any values >1 with 1
+new_rowsums = data.frame(rowS = rep(1, (dim(mob_prob_temp_full)[1])))
+new_rowsums = new_rowsums - diag(new_temp_mat)
+# rescale non-diagonal values
+for (rr in 1:nrow(mob_prob_temp_full)){
+  if (new_rowsums[rr,]==0){
+    mob_prob_temp_full[rr,]=0
+  }else{
+  mob_prob_temp_full[rr,] = mob_prob_temp_full[rr,]/sum(mob_prob_temp_full[rr,])*new_rowsums[rr,]}
+}
+diag(mob_prob_temp_full) = diag(new_temp_mat) 
+
+
+mob_data_prob_sc2_full_ndola = mob_prob_temp_full
+rm(mob_prob_temp_full, new_rowsums, new_temp_mat)
+```
+
+
+```{r}
+parameters_sc2_full_scalendola = parameters_sc2_full
+parameters_sc2_full_scalendola$mob_data_prob = mob_data_prob_sc2_full_ndola
+
+
+run_sc_dd_scale_ndola = multi_run(num_runs = n_sims, p_mat = pop_mat2020_2_full, ICs = initial_conditions_full, pars = parameters_sc2_full_scalendola)
+write.csv(run_sc_dd_scale_ndola, "figures and results/run_sc_dd_scale_ndola.csv")
+
+
+```
+
+```{r}
+out_dd_scale_ndola = plots_post_run(runs_output = run_sc_dd_scale_ndola, 
+                                    time_max = 36)
+
+
+
+```
+
+### Scenario 9 - departure-diffusion model, scale to mixed Ndola-Choma probabilities
+
+```{r}
+mob_data_prob_mixed_full = mob_data_prob_sc2_full_choma
+# now replace rows that have residence=="ndola" with mobility matrix from ndola
+ndola_dists = districts.full %>% filter(residence=="ndola")
+mob_data_prob_mixed_full[ndola_dists$district_map,] = mob_data_prob_sc2_full_ndola[ndola_dists$district_map,]
+
+```
+
+
+```{r}
+parameters_sc2_full_mixed = parameters_sc2_full
+parameters_sc2_full_mixed$mob_data_prob = mob_data_prob_mixed_full
+
+
+run_sc_dd_scale_mixed = multi_run(num_runs = n_sims, p_mat = pop_mat2020_2_full, ICs = initial_conditions_full, pars = parameters_sc2_full_mixed)
+write.csv(run_sc_dd_scale_mixed, "figures and results/run_sc_dd_scale_mixed.csv")
+
+
+```
+
+```{r}
+out_dd_scale_mixed = plots_post_run(runs_output = run_sc_dd_scale_mixed, 
+                                    time_max = 36)
+rm(run_sc_dd_scale_mixed)
+
+
+```
+
+## Introduce in Lunte, Chirundu, and Mafinga districts
+### Scenario 9 - Base case
+```{r}
+
+initial_conditions = data.frame(M = M0, S = S0_short, I0 = I0, V1R0 = V1R0, V20 = V20, V1C0 = V1C0,  incid_deaths0 = incid_deaths0, N0 = N0)
+
+parameters_sc2_outbreak = list(sd.dw.val = sd.dw.val, t = t_2, mob_data_prob = mob_data_prob, mcv1_cov_dat = mcv1_cov_dat2020_2, mcv2_cov_dat= mcv2_cov_dat2020_2, sia_cov = sia_cov2020_2, births_rate = births_rate, wane_mat = wane_mat, beta_values = beta_values, alpha = alpha, deaths_rate = deaths_rate, measles_cfr = measles_cfr, MR1_time = MR1_time, MR2_time = MR2_time, p_eff_V1r =p_eff_V1r, p_eff_V1c =p_eff_V1c, intro_mat = intro_mat2020_outbreak)
+
+
+run_sc_base_outbreak = multi_run(num_runs = n_sims, p_mat = pop_mat2020_2, ICs = initial_conditions, pars = parameters_sc2_outbreak)
+write.csv(run_sc_base_outbreak, "figures and results/run_sc_base_outbreak.csv")
+```
+
+```{r}
+out_base_outbreak = plots_post_run(runs_output = run_sc_base_outbreak, 
+                                    time_max = 36)
+rm(run_sc_base_outbreak)
+```
+
+### Scenario 10 - Scaled to Choma
+```{r}
+
+initial_conditions = data.frame(M = M0, S = S0_short, I0 = I0, V1R0 = V1R0, V20 = V20, V1C0 = V1C0,  incid_deaths0 = incid_deaths0, N0 = N0)
+
+parameters_sc2_outbreak_choma = list(sd.dw.val = sd.dw.val, t = t_2, 
+                               mob_data_prob = mob_data_prob_sc2_choma, 
+                               mcv1_cov_dat = mcv1_cov_dat2020_2, mcv2_cov_dat= mcv2_cov_dat2020_2, sia_cov = sia_cov2020_2, births_rate = births_rate, wane_mat = wane_mat, beta_values = beta_values, alpha = alpha, deaths_rate = deaths_rate, measles_cfr = measles_cfr, MR1_time = MR1_time, MR2_time = MR2_time, p_eff_V1r =p_eff_V1r, p_eff_V1c =p_eff_V1c, 
+                               intro_mat = intro_mat2020_outbreak)
+
+
+run_sc_choma_outbreak = multi_run(num_runs = n_sims, p_mat = pop_mat2020_2, ICs = initial_conditions, pars = parameters_sc2_outbreak_choma)
+write.csv(run_sc_choma_outbreak, "figures and results/run_sc_choma_outbreak.csv")
+```
+
+```{r}
+out_choma_outbreak = plots_post_run(runs_output = run_sc_choma_outbreak, 
+                                    time_max = 36)
+rm(run_sc_choma_outbreak)
+```
+
+
+### Scenario 11 - Scaled to Ndola
+```{r}
+
+initial_conditions = data.frame(M = M0, S = S0_short, I0 = I0, V1R0 = V1R0, V20 = V20, V1C0 = V1C0,  incid_deaths0 = incid_deaths0, N0 = N0)
+
+parameters_sc2_outbreak_ndola = list(sd.dw.val = sd.dw.val, t = t_2, 
+                               mob_data_prob = mob_data_prob_sc2_ndola, 
+                               mcv1_cov_dat = mcv1_cov_dat2020_2, mcv2_cov_dat= mcv2_cov_dat2020_2, sia_cov = sia_cov2020_2, births_rate = births_rate, wane_mat = wane_mat, beta_values = beta_values, alpha = alpha, deaths_rate = deaths_rate, measles_cfr = measles_cfr, MR1_time = MR1_time, MR2_time = MR2_time, p_eff_V1r =p_eff_V1r, p_eff_V1c =p_eff_V1c, 
+                               intro_mat = intro_mat2020_outbreak)
+
+
+run_sc_ndola_outbreak = multi_run(num_runs = n_sims, p_mat = pop_mat2020_2, ICs = initial_conditions, pars = parameters_sc2_outbreak_ndola)
+write.csv(run_sc_ndola_outbreak, "figures and results/run_sc_ndola_outbreak.csv")
+```
+
+```{r}
+out_ndola_outbreak = plots_post_run(runs_output = run_sc_ndola_outbreak, 
+                                    time_max = 36)
+rm(run_sc_ndola_outbreak)
+```
+
+
+### Scenario 16 - Scaled to mixture of Choma and Ndola
+```{r}
+
+initial_conditions = data.frame(M = M0, S = S0_short, I0 = I0, V1R0 = V1R0, V20 = V20, V1C0 = V1C0,  incid_deaths0 = incid_deaths0, N0 = N0)
+
+parameters_sc2_outbreak_mix = list(sd.dw.val = sd.dw.val, t = t_2, 
+                               mob_data_prob = mob_data_prob_mixed, 
+                               mcv1_cov_dat = mcv1_cov_dat2020_2, mcv2_cov_dat= mcv2_cov_dat2020_2, sia_cov = sia_cov2020_2, births_rate = births_rate, wane_mat = wane_mat, beta_values = beta_values, alpha = alpha, deaths_rate = deaths_rate, measles_cfr = measles_cfr, MR1_time = MR1_time, MR2_time = MR2_time, p_eff_V1r =p_eff_V1r, p_eff_V1c =p_eff_V1c, 
+                               intro_mat = intro_mat2020_outbreak)
+
+
+run_sc_mix_outbreak = multi_run(num_runs = n_sims, p_mat = pop_mat2020_2, ICs = initial_conditions, pars = parameters_sc2_outbreak_mix)
+write.csv(run_sc_mix_outbreak, "figures and results/run_sc_mix_outbreak.csv")
+```
+
+```{r}
+out_mix_outbreak = plots_post_run(runs_output = run_sc_mix_outbreak, 
+                                    time_max = 36)
+rm(run_sc_mix_outbreak)
+```
+
+
+### Scenario 12 - Base case, outbreak introductions, using departure-diffusion model
+
+```{r}
+
+parameters_sc2_full_outbreak = list(sd.dw.val = sd.dw.val, t = t_2, 
+                           mob_data_prob = mob_data_prob_full,
+                           mcv1_cov_dat = mcv1_cov_dat2020_2_full, mcv2_cov_dat= mcv2_cov_dat2020_2_full, sia_cov = sia_cov2020_2_full, births_rate = births_rate_full, wane_mat = wane_mat, beta_values = beta_values, alpha = alpha, deaths_rate = deaths_rate_full, measles_cfr = measles_cfr, MR1_time = MR1_time, MR2_time = MR2_time, p_eff_V1r =p_eff_V1r, p_eff_V1c =p_eff_V1c,
+                           intro_mat = intro_mat2020_outbreak_full)
+
+
+run_sc_base_dd_outbreak = multi_run(num_runs = n_sims, p_mat = pop_mat2020_2_full, ICs = initial_conditions_full, pars = parameters_sc2_full_outbreak)
+write.csv(run_sc_base_dd_outbreak, "figures and results/run_sc_base_dd_outbreak.csv")
+
+
+```
+
+```{r}
+out_dd_base_outbreak = plots_post_run(runs_output = run_sc_base_dd_outbreak, 
+                                    time_max = 36)
+
+
+rm(run_sc_base_dd_outbreak)
+```
+
+### Scenario 13 -  outbreak introductions, using departure-diffusion model, scaled to Choma
+
+```{r}
+
+parameters_sc2_full_outbreak_choma = list(sd.dw.val = sd.dw.val, t = t_2, 
+                           mob_data_prob = mob_data_prob_sc2_full_choma,
+                           mcv1_cov_dat = mcv1_cov_dat2020_2_full, mcv2_cov_dat= mcv2_cov_dat2020_2_full, sia_cov = sia_cov2020_2_full, births_rate = births_rate_full, wane_mat = wane_mat, beta_values = beta_values, alpha = alpha, deaths_rate = deaths_rate_full, measles_cfr = measles_cfr, MR1_time = MR1_time, MR2_time = MR2_time, p_eff_V1r =p_eff_V1r, p_eff_V1c =p_eff_V1c,
+                           intro_mat = intro_mat2020_outbreak_full)
+
+
+run_sc_base_dd_outbreak_choma = multi_run(num_runs = n_sims, p_mat = pop_mat2020_2_full, ICs = initial_conditions_full, pars = parameters_sc2_full_outbreak_choma)
+write.csv(run_sc_base_dd_outbreak_choma, "figures and results/run_sc_base_dd_outbreak_choma.csv")
+
+
+```
+
+```{r}
+out_dd_outbreak_choma = plots_post_run(runs_output = run_sc_base_dd_outbreak_choma, 
+                                    time_max = 36)
+
+
+rm(run_sc_base_dd_outbreak_choma)
+```
+
+
+### Scenario 14 -  outbreak introductions, using departure-diffusion model, scaled to Ndola
+
+```{r}
+
+parameters_sc2_full_outbreak_ndola = list(sd.dw.val = sd.dw.val, t = t_2, 
+                           mob_data_prob = mob_data_prob_sc2_full_ndola,
+                           mcv1_cov_dat = mcv1_cov_dat2020_2_full, mcv2_cov_dat= mcv2_cov_dat2020_2_full, sia_cov = sia_cov2020_2_full, births_rate = births_rate_full, wane_mat = wane_mat, beta_values = beta_values, alpha = alpha, deaths_rate = deaths_rate_full, measles_cfr = measles_cfr, MR1_time = MR1_time, MR2_time = MR2_time, p_eff_V1r =p_eff_V1r, p_eff_V1c =p_eff_V1c,
+                           intro_mat = intro_mat2020_outbreak_full)
+
+
+run_sc_base_dd_outbreak_ndola = multi_run(num_runs = n_sims, p_mat = pop_mat2020_2_full, ICs = initial_conditions_full, pars = parameters_sc2_full_outbreak_ndola)
+write.csv(run_sc_base_dd_outbreak_ndola, "figures and results/run_sc_base_dd_outbreak_ndola.csv")
+
+
+```
+
+```{r}
+out_dd_outbreak_ndola = plots_post_run(runs_output = run_sc_base_dd_outbreak_ndola, 
+                                    time_max = 36)
+
+
+rm(run_sc_base_dd_outbreak_ndola)
+```
+
+
+
+### Scenario 15 -  outbreak introductions, using departure-diffusion model, scaled to mixture
+
+```{r}
+
+parameters_sc2_full_outbreak_mix = list(sd.dw.val = sd.dw.val, t = t_2, 
+                           mob_data_prob = mob_data_prob_mixed_full,
+                           mcv1_cov_dat = mcv1_cov_dat2020_2_full, mcv2_cov_dat= mcv2_cov_dat2020_2_full, sia_cov = sia_cov2020_2_full, births_rate = births_rate_full, wane_mat = wane_mat, beta_values = beta_values, alpha = alpha, deaths_rate = deaths_rate_full, measles_cfr = measles_cfr, MR1_time = MR1_time, MR2_time = MR2_time, p_eff_V1r =p_eff_V1r, p_eff_V1c =p_eff_V1c,
+                           intro_mat = intro_mat2020_outbreak_full)
+
+
+run_sc_base_dd_outbreak_mix = multi_run(num_runs = n_sims, p_mat = pop_mat2020_2_full, ICs = initial_conditions_full, pars = parameters_sc2_full_outbreak_mix)
+write.csv(run_sc_base_dd_outbreak_mix, "figures and results/run_sc_base_dd_outbreak_mix.csv")
+
+
+```
+
+```{r}
+out_dd_outbreak_mix = plots_post_run(runs_output = run_sc_base_dd_outbreak_mix, 
+                                    time_max = 36)
+
+
+rm(run_sc_base_dd_outbreak_mix)
+```
+
+### SIA in provinces with introductions only
+
+### Scenario 17 - Absolute CDRs, Base case
+```{r}
+
+initial_conditions = data.frame(M = M0, S = S0_short, I0 = I0, V1R0 = V1R0, V20 = V20, V1C0 = V1C0,  incid_deaths0 = incid_deaths0, N0 = N0)
+
+parameters_sc2_outbreak_SIA1 = list(sd.dw.val = sd.dw.val, t = t_2, mob_data_prob = mob_data_prob, mcv1_cov_dat = mcv1_cov_dat2020_2, mcv2_cov_dat= mcv2_cov_dat2020_2,
+                               sia_cov = sia_wintros_mat2020, 
+                               births_rate = births_rate, wane_mat = wane_mat, beta_values = beta_values, alpha = alpha, deaths_rate = deaths_rate, measles_cfr = measles_cfr, MR1_time = MR1_time, MR2_time = MR2_time, p_eff_V1r =p_eff_V1r, p_eff_V1c =p_eff_V1c, intro_mat = intro_mat2020_outbreak)
+
+
+run_sc_base_outbreak_SIA1 = multi_run(num_runs = n_sims, p_mat = pop_mat2020_2, ICs = initial_conditions, pars = parameters_sc2_outbreak_SIA1)
+write.csv(run_sc_base_outbreak_SIA1, "figures and results/run_sc_base_outbreak_SIA1.csv")
+```
+
+```{r}
+out_base_outbreak_SIA1 = plots_post_run(runs_output = run_sc_base_outbreak_SIA1, 
+                                    time_max = 36)
+rm(run_sc_base_outbreak_SIA1)
+```
+
+### Scenario 18 - Absolute CDRs, scaled to choma
+```{r}
+
+initial_conditions = data.frame(M = M0, S = S0_short, I0 = I0, V1R0 = V1R0, V20 = V20, V1C0 = V1C0,  incid_deaths0 = incid_deaths0, N0 = N0)
+
+parameters_sc2_outbreak_SIA1_choma = list(sd.dw.val = sd.dw.val, t = t_2, 
+                                          mob_data_prob = mob_data_prob_sc2_choma, 
+                                          mcv1_cov_dat = mcv1_cov_dat2020_2, mcv2_cov_dat= mcv2_cov_dat2020_2,
+                               sia_cov = sia_wintros_mat2020, 
+                               births_rate = births_rate, wane_mat = wane_mat, beta_values = beta_values, alpha = alpha, deaths_rate = deaths_rate, measles_cfr = measles_cfr, MR1_time = MR1_time, MR2_time = MR2_time, p_eff_V1r =p_eff_V1r, p_eff_V1c =p_eff_V1c, intro_mat = intro_mat2020_outbreak)
+
+
+run_sc_outbreak_SIA1_choma = multi_run(num_runs = n_sims, p_mat = pop_mat2020_2, ICs = initial_conditions, pars = parameters_sc2_outbreak_SIA1_choma)
+write.csv(run_sc_outbreak_SIA1_choma, "figures and results/run_sc_outbreak_SIA1_choma.csv")
+```
+
+```{r}
+out_outbreak_SIA1_choma = plots_post_run(runs_output = run_sc_outbreak_SIA1_choma, 
+                                    time_max = 36)
+rm(run_sc_outbreak_SIA1_choma)
+```
+
+
+### Scenario 19 - Absolute CDRs, scaled to Ndola
+```{r}
+
+initial_conditions = data.frame(M = M0, S = S0_short, I0 = I0, V1R0 = V1R0, V20 = V20, V1C0 = V1C0,  incid_deaths0 = incid_deaths0, N0 = N0)
+
+parameters_sc2_outbreak_SIA1_ndola = list(sd.dw.val = sd.dw.val, t = t_2, 
+                                          mob_data_prob = mob_data_prob_sc2_ndola, 
+                                          mcv1_cov_dat = mcv1_cov_dat2020_2, mcv2_cov_dat= mcv2_cov_dat2020_2,
+                               sia_cov = sia_wintros_mat2020, 
+                               births_rate = births_rate, wane_mat = wane_mat, beta_values = beta_values, alpha = alpha, deaths_rate = deaths_rate, measles_cfr = measles_cfr, MR1_time = MR1_time, MR2_time = MR2_time, p_eff_V1r =p_eff_V1r, p_eff_V1c =p_eff_V1c, intro_mat = intro_mat2020_outbreak)
+
+
+run_sc_outbreak_SIA1_ndola = multi_run(num_runs = n_sims, p_mat = pop_mat2020_2, ICs = initial_conditions, pars = parameters_sc2_outbreak_SIA1_ndola)
+write.csv(run_sc_outbreak_SIA1_ndola, "figures and results/run_sc_outbreak_SIA1_ndola.csv")
+```
+
+```{r}
+out_outbreak_SIA1_ndola = plots_post_run(runs_output = run_sc_outbreak_SIA1_ndola, 
+                                    time_max = 36)
+rm(run_sc_outbreak_SIA1_ndola)
+```
+
+### Scenario 20 - Absolute CDRs, scaled to mixture of Choma and Ndola
+```{r}
+
+initial_conditions = data.frame(M = M0, S = S0_short, I0 = I0, V1R0 = V1R0, V20 = V20, V1C0 = V1C0,  incid_deaths0 = incid_deaths0, N0 = N0)
+
+parameters_sc2_outbreak_SIA1_mix = list(sd.dw.val = sd.dw.val, t = t_2, 
+                                          mob_data_prob = mob_data_prob_mixed, 
+                                          mcv1_cov_dat = mcv1_cov_dat2020_2, mcv2_cov_dat= mcv2_cov_dat2020_2,
+                               sia_cov = sia_wintros_mat2020, 
+                               births_rate = births_rate, wane_mat = wane_mat, beta_values = beta_values, alpha = alpha, deaths_rate = deaths_rate, measles_cfr = measles_cfr, MR1_time = MR1_time, MR2_time = MR2_time, p_eff_V1r =p_eff_V1r, p_eff_V1c =p_eff_V1c, intro_mat = intro_mat2020_outbreak)
+
+
+run_sc_outbreak_SIA1_mix = multi_run(num_runs = n_sims, p_mat = pop_mat2020_2, ICs = initial_conditions, pars = parameters_sc2_outbreak_SIA1_mix)
+write.csv(run_sc_outbreak_SIA1_mix, "figures and results/run_sc_outbreak_SIA1_mix.csv")
+```
+
+```{r}
+out_outbreak_SIA1_mix = plots_post_run(runs_output = run_sc_outbreak_SIA1_mix, 
+                                    time_max = 36)
+rm(run_sc_outbreak_SIA1_mix)
+```
+
+### Scenario 21 - Base case, outbreak introductions, using departure-diffusion model, SIA in three outbreak provinces
+
+```{r}
+
+parameters_sc2_full_outbreak_SIA1 = list(sd.dw.val = sd.dw.val, t = t_2, 
+                           mob_data_prob = mob_data_prob_full,
+                           mcv1_cov_dat = mcv1_cov_dat2020_2_full, mcv2_cov_dat= mcv2_cov_dat2020_2_full, sia_cov = sia_wintros_mat2020_full, 
+                           births_rate = births_rate_full, wane_mat = wane_mat, beta_values = beta_values, alpha = alpha, deaths_rate = deaths_rate_full, measles_cfr = measles_cfr, MR1_time = MR1_time, MR2_time = MR2_time, p_eff_V1r =p_eff_V1r, p_eff_V1c =p_eff_V1c,
+                           intro_mat = intro_mat2020_outbreak_full)
+
+
+run_sc_base_dd_outbreak_SIA1 = multi_run(num_runs = n_sims, p_mat = pop_mat2020_2_full, ICs = initial_conditions_full, pars = parameters_sc2_full_outbreak_SIA1)
+write.csv(run_sc_base_dd_outbreak_SIA1, "figures and results/run_sc_base_dd_outbreak_SIA1.csv")
+
+
+```
+
+```{r}
+out_dd_base_outbreak_SIA1 = plots_post_run(runs_output = run_sc_base_dd_outbreak_SIA1, 
+                                    time_max = 36)
+
+
+rm(run_sc_base_dd_outbreak_SIA1)
+```
+
+
+
+
+### Scenario 22 - outbreak introductions, using departure-diffusion model, scaled to Choma, SIA in three outbreak provinces
+
+```{r}
+
+parameters_full_outbreak_SIA1_choma = list(sd.dw.val = sd.dw.val, t = t_2, 
+                           mob_data_prob = mob_data_prob_sc2_full_choma,
+                           mcv1_cov_dat = mcv1_cov_dat2020_2_full, mcv2_cov_dat= mcv2_cov_dat2020_2_full, sia_cov = sia_wintros_mat2020_full, 
+                           births_rate = births_rate_full, wane_mat = wane_mat, beta_values = beta_values, alpha = alpha, deaths_rate = deaths_rate_full, measles_cfr = measles_cfr, MR1_time = MR1_time, MR2_time = MR2_time, p_eff_V1r =p_eff_V1r, p_eff_V1c =p_eff_V1c,
+                           intro_mat = intro_mat2020_outbreak_full)
+
+
+run_dd_outbreak_SIA1_choma = multi_run(num_runs = n_sims, p_mat = pop_mat2020_2_full, ICs = initial_conditions_full, pars = parameters_full_outbreak_SIA1_choma)
+write.csv(run_dd_outbreak_SIA1_choma, "figures and results/run_dd_outbreak_SIA1_choma.csv")
+
+
+```
+
+```{r}
+out_dd_outbreak_SIA1_choma = plots_post_run(runs_output = run_dd_outbreak_SIA1_choma, 
+                                    time_max = 36)
+
+
+rm(run_dd_outbreak_SIA1_choma)
+```
+
+
+
+
+### Scenario 23 - outbreak introductions, using departure-diffusion model, scaled to Ndola, SIA in three outbreak provinces
+
+```{r}
+
+parameters_full_outbreak_SIA1_ndola = list(sd.dw.val = sd.dw.val, t = t_2, 
+                           mob_data_prob = mob_data_prob_sc2_full_ndola,
+                           mcv1_cov_dat = mcv1_cov_dat2020_2_full, mcv2_cov_dat= mcv2_cov_dat2020_2_full, sia_cov = sia_wintros_mat2020_full, 
+                           births_rate = births_rate_full, wane_mat = wane_mat, beta_values = beta_values, alpha = alpha, deaths_rate = deaths_rate_full, measles_cfr = measles_cfr, MR1_time = MR1_time, MR2_time = MR2_time, p_eff_V1r =p_eff_V1r, p_eff_V1c =p_eff_V1c,
+                           intro_mat = intro_mat2020_outbreak_full)
+
+
+run_dd_outbreak_SIA1_ndola = multi_run(num_runs = n_sims, p_mat = pop_mat2020_2_full, ICs = initial_conditions_full, pars = parameters_full_outbreak_SIA1_ndola)
+write.csv(run_dd_outbreak_SIA1_ndola, "figures and results/run_dd_outbreak_SIA1_ndola.csv")
+
+
+```
+
+```{r}
+out_dd_outbreak_SIA1_ndola = plots_post_run(runs_output = run_dd_outbreak_SIA1_ndola, 
+                                    time_max = 36)
+
+
+rm(run_dd_outbreak_SIA1_ndola)
+```
+
+
+
+
+### Scenario 24 - outbreak introductions, using departure-diffusion model, scaled to mixture of Choma and Ndola, SIA in three outbreak provinces
+
+```{r}
+
+parameters_full_outbreak_SIA1_mix = list(sd.dw.val = sd.dw.val, t = t_2, 
+                           mob_data_prob = mob_data_prob_mixed_full,
+                           mcv1_cov_dat = mcv1_cov_dat2020_2_full, mcv2_cov_dat= mcv2_cov_dat2020_2_full, sia_cov = sia_wintros_mat2020_full, 
+                           births_rate = births_rate_full, wane_mat = wane_mat, beta_values = beta_values, alpha = alpha, deaths_rate = deaths_rate_full, measles_cfr = measles_cfr, MR1_time = MR1_time, MR2_time = MR2_time, p_eff_V1r =p_eff_V1r, p_eff_V1c =p_eff_V1c,
+                           intro_mat = intro_mat2020_outbreak_full)
+
+
+run_dd_outbreak_SIA1_mixed = multi_run(num_runs = n_sims, p_mat = pop_mat2020_2_full, ICs = initial_conditions_full, pars = parameters_full_outbreak_SIA1_mix)
+write.csv(run_dd_outbreak_SIA1_mixed, "figures and results/run_dd_outbreak_SIA1_mixed.csv")
+
+
+```
+
+```{r}
+out_dd_outbreak_SIA1_mixed = plots_post_run(runs_output = run_dd_outbreak_SIA1_mixed, 
+                                    time_max = 36)
+
+
+rm(run_dd_outbreak_SIA1_mixed)
+```
+
+
+# Try using district-level outbreak response
+
+### Scenario 25 - Base case, inctroductions in 3 districts, outbreak response in same districts, absolute CDRs, unscaled
+```{r}
+
+initial_conditions = data.frame(M = M0, S = S0_short, I0 = I0, V1R0 = V1R0, V20 = V20, V1C0 = V1C0,  incid_deaths0 = incid_deaths0, N0 = N0)
+
+parameters_sc2_outbreak = list(sd.dw.val = sd.dw.val, t = t_2, mob_data_prob = mob_data_prob, mcv1_cov_dat = mcv1_cov_dat2020_2, mcv2_cov_dat= mcv2_cov_dat2020_2, sia_cov = sia_cov2020_2, births_rate = births_rate, wane_mat = wane_mat, beta_values = beta_values, alpha = alpha, deaths_rate = deaths_rate, measles_cfr = measles_cfr, MR1_time = MR1_time, MR2_time = MR2_time, p_eff_V1r =p_eff_V1r, p_eff_V1c =p_eff_V1c, intro_mat = intro_mat2020_outbreak)
+
+
+run_sc_base_outbreak_dist = multi_run_outbreak(num_runs = n_sims, p_mat = pop_mat2020_2, ICs = initial_conditions, pars = parameters_sc2_outbreak)
+write.csv(run_sc_base_outbreak_dist, "figures and results/run_sc_base_outbreak_dist.csv")
+```
+
+```{r}
+run_sc_base_outbreak_dist = read.csv("figures and results/run_sc_base_outbreak_dist.csv")
+
+out_base_outbreak_dist = plots_post_run(runs_output = run_sc_base_outbreak_dist, 
+                                    time_max = 36)
+rm(run_sc_base_outbreak_dist)
+```
+
+### Scenario 26 - Scaled to Choma, district-level outbreak response
+```{r}
+
+initial_conditions = data.frame(M = M0, S = S0_short, I0 = I0, V1R0 = V1R0, V20 = V20, V1C0 = V1C0,  incid_deaths0 = incid_deaths0, N0 = N0)
+
+parameters_sc2_outbreak_choma = list(sd.dw.val = sd.dw.val, t = t_2, 
+                               mob_data_prob = mob_data_prob_sc2_choma, 
+                               mcv1_cov_dat = mcv1_cov_dat2020_2, mcv2_cov_dat= mcv2_cov_dat2020_2, sia_cov = sia_cov2020_2, births_rate = births_rate, wane_mat = wane_mat, beta_values = beta_values, alpha = alpha, deaths_rate = deaths_rate, measles_cfr = measles_cfr, MR1_time = MR1_time, MR2_time = MR2_time, p_eff_V1r =p_eff_V1r, p_eff_V1c =p_eff_V1c, 
+                               intro_mat = intro_mat2020_outbreak)
+
+
+run_sc_choma_outbreak_dist = multi_run_outbreak(num_runs = n_sims, p_mat = pop_mat2020_2, ICs = initial_conditions, pars = parameters_sc2_outbreak_choma)
+write.csv(run_sc_choma_outbreak_dist, "figures and results/run_sc_choma_outbreak_dist.csv")
+```
+
+```{r}
+run_sc_choma_outbreak_dist = read.csv("figures and results/run_sc_choma_outbreak_dist.csv")
+
+out_choma_outbreak_dist = plots_post_run(runs_output = run_sc_choma_outbreak_dist, 
+                                    time_max = 36)
+rm(run_sc_choma_outbreak_dist)
+```
+
+
+### Scenario 27 - Scaled to Ndola, district-level outbreak response
+```{r}
+
+initial_conditions = data.frame(M = M0, S = S0_short, I0 = I0, V1R0 = V1R0, V20 = V20, V1C0 = V1C0,  incid_deaths0 = incid_deaths0, N0 = N0)
+
+parameters_sc2_outbreak_ndola = list(sd.dw.val = sd.dw.val, t = t_2, 
+                               mob_data_prob = mob_data_prob_sc2_ndola, 
+                               mcv1_cov_dat = mcv1_cov_dat2020_2, mcv2_cov_dat= mcv2_cov_dat2020_2, sia_cov = sia_cov2020_2, births_rate = births_rate, wane_mat = wane_mat, beta_values = beta_values, alpha = alpha, deaths_rate = deaths_rate, measles_cfr = measles_cfr, MR1_time = MR1_time, MR2_time = MR2_time, p_eff_V1r =p_eff_V1r, p_eff_V1c =p_eff_V1c, 
+                               intro_mat = intro_mat2020_outbreak)
+
+
+run_sc_ndola_outbreak_dist = multi_run_outbreak(num_runs = n_sims, p_mat = pop_mat2020_2, ICs = initial_conditions, pars = parameters_sc2_outbreak_ndola)
+write.csv(run_sc_ndola_outbreak_dist, "figures and results/run_sc_ndola_outbreak_dist.csv")
+```
+
+```{r}
+run_sc_ndola_outbreak_dist = read.csv("figures and results/run_sc_ndola_outbreak_dist.csv")
+
+out_ndola_outbreak_dist = plots_post_run(runs_output = run_sc_ndola_outbreak_dist, 
+                                    time_max = 36)
+rm(run_sc_ndola_outbreak_dist)
+```
+
+
+### Scenario 28 - Scaled to mixture of Choma and Ndola
+```{r}
+
+initial_conditions = data.frame(M = M0, S = S0_short, I0 = I0, V1R0 = V1R0, V20 = V20, V1C0 = V1C0,  incid_deaths0 = incid_deaths0, N0 = N0)
+
+parameters_sc2_outbreak_mix = list(sd.dw.val = sd.dw.val, t = t_2, 
+                               mob_data_prob = mob_data_prob_mixed, 
+                               mcv1_cov_dat = mcv1_cov_dat2020_2, mcv2_cov_dat= mcv2_cov_dat2020_2, sia_cov = sia_cov2020_2, births_rate = births_rate, wane_mat = wane_mat, beta_values = beta_values, alpha = alpha, deaths_rate = deaths_rate, measles_cfr = measles_cfr, MR1_time = MR1_time, MR2_time = MR2_time, p_eff_V1r =p_eff_V1r, p_eff_V1c =p_eff_V1c, 
+                               intro_mat = intro_mat2020_outbreak)
+
+
+run_sc_mixed_outbreak_dist = multi_run_outbreak(num_runs = n_sims, p_mat = pop_mat2020_2, ICs = initial_conditions, pars = parameters_sc2_outbreak_mix)
+write.csv(run_sc_mixed_outbreak_dist, "figures and results/run_sc_mixed_outbreak_dist.csv")
+```
+
+```{r}
+run_sc_mixed_outbreak_dist = read.csv("figures and results/run_sc_mixed_outbreak_dist.csv")
+
+out_mixed_outbreak_dist = plots_post_run(runs_output = run_sc_mixed_outbreak_dist, 
+                                    time_max = 36)
+rm(run_sc_mixed_outbreak_dist)
+```
+
+
+### Scenario 29 - Base case, outbreak introductions, using departure-diffusion model, district-level outbreak response
+
+```{r}
+
+parameters_sc2_full_outbreak = list(sd.dw.val = sd.dw.val, t = t_2, 
+                           mob_data_prob = mob_data_prob_full,
+                           mcv1_cov_dat = mcv1_cov_dat2020_2_full, mcv2_cov_dat= mcv2_cov_dat2020_2_full, sia_cov = sia_cov2020_2_full, births_rate = births_rate_full, wane_mat = wane_mat, beta_values = beta_values, alpha = alpha, deaths_rate = deaths_rate_full, measles_cfr = measles_cfr, MR1_time = MR1_time, MR2_time = MR2_time, p_eff_V1r =p_eff_V1r, p_eff_V1c =p_eff_V1c,
+                           intro_mat = intro_mat2020_outbreak_full)
+
+
+run_sc_base_dd_outbreak_dist = multi_run_outbreak(num_runs = n_sims, p_mat = pop_mat2020_2_full, ICs = initial_conditions_full, pars = parameters_sc2_full_outbreak)
+write.csv(run_sc_base_dd_outbreak_dist, "figures and results/run_sc_base_dd_outbreak_dist.csv")
+
+
+```
+
+```{r}
+out_dd_base_outbreak_dist = plots_post_run(runs_output = run_sc_base_dd_outbreak_dist, 
+                                    time_max = 36)
+
+
+rm(run_sc_base_dd_outbreak_dist)
+```
+
+### Scenario 30 -  outbreak introductions, using departure-diffusion model, scaled to Choma, district-level outbreak response
+
+```{r}
+
+parameters_sc2_full_outbreak_choma = list(sd.dw.val = sd.dw.val, t = t_2, 
+                           mob_data_prob = mob_data_prob_sc2_full_choma,
+                           mcv1_cov_dat = mcv1_cov_dat2020_2_full, mcv2_cov_dat= mcv2_cov_dat2020_2_full, sia_cov = sia_cov2020_2_full, births_rate = births_rate_full, wane_mat = wane_mat, beta_values = beta_values, alpha = alpha, deaths_rate = deaths_rate_full, measles_cfr = measles_cfr, MR1_time = MR1_time, MR2_time = MR2_time, p_eff_V1r =p_eff_V1r, p_eff_V1c =p_eff_V1c,
+                           intro_mat = intro_mat2020_outbreak_full)
+
+
+run_sc_base_dd_outbreak_choma_dist = multi_run_outbreak(num_runs = n_sims, p_mat = pop_mat2020_2_full, ICs = initial_conditions_full, pars = parameters_sc2_full_outbreak_choma)
+write.csv(run_sc_base_dd_outbreak_choma_dist, "figures and results/run_sc_base_dd_outbreak_choma_dist.csv")
+
+
+```
+
+```{r}
+out_dd_outbreak_choma_dist = plots_post_run(runs_output = run_sc_base_dd_outbreak_choma_dist, 
+                                    time_max = 36)
+
+
+rm(run_sc_base_dd_outbreak_choma_dist)
+```
+
+
+### Scenario 31 -  outbreak introductions, using departure-diffusion model, scaled to Ndola
+
+```{r}
+
+parameters_sc2_full_outbreak_ndola = list(sd.dw.val = sd.dw.val, t = t_2, 
+                           mob_data_prob = mob_data_prob_sc2_full_ndola,
+                           mcv1_cov_dat = mcv1_cov_dat2020_2_full, mcv2_cov_dat= mcv2_cov_dat2020_2_full, sia_cov = sia_cov2020_2_full, births_rate = births_rate_full, wane_mat = wane_mat, beta_values = beta_values, alpha = alpha, deaths_rate = deaths_rate_full, measles_cfr = measles_cfr, MR1_time = MR1_time, MR2_time = MR2_time, p_eff_V1r =p_eff_V1r, p_eff_V1c =p_eff_V1c,
+                           intro_mat = intro_mat2020_outbreak_full)
+
+
+run_sc_base_dd_outbreak_ndola_dist = multi_run_outbreak(num_runs = n_sims, p_mat = pop_mat2020_2_full, ICs = initial_conditions_full, pars = parameters_sc2_full_outbreak_ndola)
+write.csv(run_sc_base_dd_outbreak_ndola_dist, "figures and results/run_sc_base_dd_outbreak_ndola_dist.csv")
+
+
+```
+
+```{r}
+out_dd_outbreak_ndola_dist = plots_post_run(runs_output = run_sc_base_dd_outbreak_ndola_dist, 
+                                    time_max = 36)
+
+
+rm(run_sc_base_dd_outbreak_ndola_dist)
+```
+
+
+
+### Scenario 32 -  outbreak introductions, using departure-diffusion model, scaled to mixture
+
+```{r}
+
+parameters_sc2_full_outbreak_mix = list(sd.dw.val = sd.dw.val, t = t_2, 
+                           mob_data_prob = mob_data_prob_mixed_full,
+                           mcv1_cov_dat = mcv1_cov_dat2020_2_full, mcv2_cov_dat= mcv2_cov_dat2020_2_full, sia_cov = sia_cov2020_2_full, births_rate = births_rate_full, wane_mat = wane_mat, beta_values = beta_values, alpha = alpha, deaths_rate = deaths_rate_full, measles_cfr = measles_cfr, MR1_time = MR1_time, MR2_time = MR2_time, p_eff_V1r =p_eff_V1r, p_eff_V1c =p_eff_V1c,
+                           intro_mat = intro_mat2020_outbreak_full)
+
+
+run_sc_base_dd_outbreak_mixed_dist = multi_run_outbreak(num_runs = n_sims, p_mat = pop_mat2020_2_full, ICs = initial_conditions_full, pars = parameters_sc2_full_outbreak_mix)
+write.csv(run_sc_base_dd_outbreak_mixed_dist, "figures and results/run_sc_base_dd_outbreak_mixed.csv")
+
+
+```
+
+```{r}
+out_dd_outbreak_mixed_dist = plots_post_run(runs_output = run_sc_base_dd_outbreak_mixed_dist, 
+                                    time_max = 36)
+
+
+rm(run_sc_base_dd_outbreak_mixed_dist)
+```
+
+
